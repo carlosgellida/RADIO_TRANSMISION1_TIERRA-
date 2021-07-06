@@ -80,7 +80,9 @@ void setup() {
 
 void loop() {
 
+    //radio.startListening(); 
     // This device is a RX node
+    //bool recieved = false; 
 
     uint8_t pipe;
     if (radio.available(&pipe)) {             // is there a payload? get the pipe number that recieved it
@@ -92,6 +94,18 @@ void loop() {
       Serial.print(pipe);                     // print the pipe number
       Serial.print(F(": "));
       Serial.println(Arr2Str(payload));                // print the payload's value
+      //recieved = true; 
     }
+
+    /*if(recieved == true){
+      
+      radio.stopListening();  // put radio in TX mode
+      bool report = radio.write(&payload, sizeof(payload)); 
+      while(!report){
+       Serial.println("It's writting!");
+       report = radio.write(&payload, sizeof(payload));     
+      }
+      radio.startListening(); 
+    }*/
 
 } // loop
