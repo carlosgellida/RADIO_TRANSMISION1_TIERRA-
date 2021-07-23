@@ -25,27 +25,44 @@ float time1, time2;
 Quaternion currentQuat ;
 Quaternion desiredQuat ; 
 
+bool test = true; 
+
+// Declare struct with info of buttons
+struct Buttons buttons; 
+
 Quaternion getDesiredQuat(void){
   // Dumy function thats simulates to estimate desired quaternion
   Quaternion quaternion ; 
-  quaternion.qw = 0.1 ; 
-  quaternion.qx = 0.2 ; 
-  quaternion.qy = 0.3 ; 
-  quaternion.qz = 0.4 ; 
+  quaternion.qw = 1 ; 
+  quaternion.qx = 0 ; 
+  quaternion.qy = 0 ; 
+  quaternion.qz = 0 ; 
   return quaternion ; 
 }
 
-void getAndSendInfo(void)
-{
+struct Quaternion getDesiredQuat2(){
+  struct Quaternion desiredQuat;
+  Matrix<3, 1> m = {0, 0, 0}; 
+  Matrix<3, 1> z = {0, 0, 1}; 
+  Matrix<3, 1> u ;
+  m(0, 0) = buttons.Lx; 
+  m(1, 0) = buttons.Ly; 
+  //Serial << "m: " << m << "\n";
+  u = escProd(-1, crossProduct(m, z)) ; 
+  //Serial << "u: " << u << "\n";
+  float normU = norm2(u); 
+  u = escProd(1/normU, u); // Normalization of u vector
+  float c = 0.06; // Constante de proporcionalidad
+  float theta = c*normU ; // Angle
+  desiredQuat = arr2Struc(arrMod(axisAng2Quat(theta, u)) );
+  //desiredQuat = arr2Struc(quatProduct(giro90Y(), arrMod(axisAng2Quat(theta, u)) ));
+  return desiredQuat; 
+}
 
+void getAndSendInfo()
+{
   //Declare a string where data is saved
   String output;
-
-  // Declare struct with info of buttons
-  struct Buttons buttons; 
-
-  // get analog reads for joystick buttons
-  buttons = AnalogJoystick() ; // Obtener lectura de botones
 
   //Resetar string output
   output = "";
@@ -55,17 +72,21 @@ void getAndSendInfo(void)
 
   //Almacenar info del quaternio en documento JSON
   jsonDocTx["QW"] = currentQuat.qw ; 
-  //Serial.print("Program arrives here! "); 
-  //Serial.println(currentQuat.qw) ;
   jsonDocTx["QX"] = currentQuat.qx ; 
   jsonDocTx["QY"] = currentQuat.qy ; 
   jsonDocTx["QZ"] = currentQuat.qz ; 
+
   jsonDocTx["Lx"] = buttons.Lx ; // Agregar lectura de botones al archivo JSON
   jsonDocTx["Ly"] = buttons.Ly ; 
   jsonDocTx["Lw"] = buttons.Lw ; 
   jsonDocTx["Rx"] = buttons.Rx ; 
   jsonDocTx["Ry"] = buttons.Ry ; 
   jsonDocTx["Rw"] = buttons.Rw ; 
+
+  jsonDocTx["dQW"] = desiredQuat.qw; 
+  jsonDocTx["dQX"] = desiredQuat.qx; 
+  jsonDocTx["dQY"] = desiredQuat.qy; 
+  jsonDocTx["dQZ"] = desiredQuat.qz; 
 
   //Convertir documento JSON en un string
   serializeJson(jsonDocTx, output);
@@ -172,43 +193,29 @@ void taskWifiInternet(void)
   foundIP(); 
 }
 
-void send(bool recieved){
-  bool sended = false; 
-  
-  if(recieved){
-    desiredQuat = getDesiredQuat() ; 
+void send(Quaternion desiredQuat){
     myRadio.stopListening();
-    float time = float(micros()); 
-    sended = myRadio.write(&desiredQuat, sizeof(desiredQuat)); 
-    /*Serial.print("time to send: "); 
-    Serial.println(float(micros()) - time); */
+    myRadio.write(&desiredQuat, sizeof(desiredQuat));
     myRadio.startListening(); 
-  }
-
-  /*if(sended){   
-    Serial.println("Transmit: ");
-  }*/
-
 }
 
 bool getData(void){
   bool recieved = false; 
+  //Serial.println("listenning"); 
   if ( myRadio.available()) {
       myRadio.read(&currentQuat, sizeof(currentQuat) );
-      //Serial.println("Recieve: ");
+      /*Serial.print("currentQuat: "); 
+      printQuat(currentQuat); */
       recieved = true; 
   }
   return recieved; 
 
 }
 
-void sendDataToWiFi(bool recieved){
-  if(recieved){
-    //Serial.print("currentQuat: "); 
-    //printQuat(currentQuat); 
-    getAndSendInfo() ; 
-  }
-}
+/*void sendDataToWiFi(Buttons buttons, Quaternion desiredQuat){
+    webSocket.loop();
+    getAndSendInfo(buttons, desiredQuat) ; 
+}*/
 
 void setup() {
   Serial.begin(115200);
@@ -239,15 +246,28 @@ void setup() {
   myRadio.openWritingPipe(masterAddress);
   myRadio.openReadingPipe(1, slaveAddress);
   //myRadio.setChannel(115); 
-  myRadio.setRetries(3, 5);
+  myRadio.setRetries(1, 3);
+  myRadio.powerUp() ; 
   myRadio.startListening();
+  
   Serial.println("Data transmision begins");
   prevMillis = millis();
+  
 }
 
 void loop() {
-  webSocket.loop();
-  bool recieved = getData();
-  sendDataToWiFi(recieved) ;
-  send(recieved) ; 
+  if(getData()){
+    // get analog reads for joystick buttons
+    buttons = AnalogJoystick() ; // Obtener lectura de botones
+
+    // Calculation of desired Quaternion using the buttons
+
+    desiredQuat = getDesiredQuat2(); 
+    //printQuat(desiredQuat); 
+    send(desiredQuat) ; // Send back the desired quaternion
+
+    webSocket.loop();
+    getAndSendInfo() ; // Send all the info to the computer
+  }
+
 }
