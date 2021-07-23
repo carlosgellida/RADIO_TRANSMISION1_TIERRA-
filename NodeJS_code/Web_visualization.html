@@ -368,13 +368,14 @@
          let quat_desired = new THREE.Quaternion(jsonObject.dQX, jsonObject.dQY, jsonObject.dQZ, jsonObject.dQW);
          //const Euler_current = new THREE.Euler( jsonObject.EulerX*pi/180, jsonObject.EulerY*pi/180, jsonObject.EulerZ*pi/180, 'XYZ' );
   
-         //var quat3 = new THREE.Quaternion(0, 0.7071068, 0, 0.7071068 ) ; // Rota 90deg sobre y
+         var quat3 = new THREE.Quaternion(0, 0.7071068, 0, 0.7071068 ) ; // Rota 90deg sobre y
          //var quat2 = new THREE.Quaternion(0.1564345, 0, 0, 0.9876883) ; // Rota 0.1 Rad sobre y
          //var quat4 = new THREE.Quaternion( 0.3801884, 0, 0, 0.9249091); // Rota 0.1 Rad sobre y
          //quat1.multiplyQuaternions(quat2, quat1);  // Remplaza el cuaternio 4 con el resultado
                                                         // del producto especial de quaternios
          
-         //quat1.multiplyQuaternions(quat3, quat1);
+         quat1.multiplyQuaternions(quat3, quat1);
+         quat_desired.multiplyQuaternions(quat3, quat_desired);
           
          //quat1.setFromEuler(Euler_current); 
               
